@@ -1,9 +1,12 @@
+ARG NEED_MIRROR=0
+ARG GOPROXY
+
 # base stage
 FROM ubuntu:24.04 AS base
 USER root
 SHELL ["/bin/bash", "-c"]
 
-ARG NEED_MIRROR=0
+ARG NEED_MIRROR
 
 #Optional parameter
 #If set NEED_MIRROR=1, and set GITEE_TOKEN="xxxxx" , donwload source from gitee.
@@ -168,6 +171,9 @@ RUN --mount=type=bind,source=.git,target=/ragflow/.git \
 FROM infiniflow/github_action_runner:latest AS go-builder
 USER root
 SHELL ["/bin/bash", "-c"]
+ARG NEED_MIRROR
+ARG GOPROXY
+ENV GOMODCACHE=/root/.cache/gomod GOCACHE=/root/.cache/gobuild
 WORKDIR /ragflow
 
 # Cache Go modules BEFORE copying source (mirrors the Dockerfile_go_ci fix):
@@ -178,8 +184,13 @@ WORKDIR /ragflow
 COPY go.mod go.sum ./
 RUN --mount=type=cache,id=ragflow_gomod,target=/root/.cache/gomod \
     --mount=type=cache,id=ragflow_gobuild,target=/root/.cache/gobuild \
-    GOMODCACHE=/root/.cache/gomod GOCACHE=/root/.cache/gobuild \
-    GOPROXY=${GOPROXY:-https://goproxy.cn,https://proxy.golang.org,direct} \
+    if [ -z "$GOPROXY" ]; then \
+        if [ "$NEED_MIRROR" = "1" ]; then \
+            export GOPROXY="https://goproxy.cn,https://proxy.golang.org,direct"; \
+        else \
+            export GOPROXY="https://proxy.golang.org,direct"; \
+        fi; \
+    fi && \
     go mod download
 
 COPY internal internal
@@ -220,7 +231,13 @@ RUN git config --global safe.directory "*" && \
 
 RUN --mount=type=cache,id=ragflow_gomod,target=/root/.cache/gomod \
     --mount=type=cache,id=ragflow_gobuild,target=/root/.cache/gobuild \
-    GOMODCACHE=/root/.cache/gomod GOCACHE=/root/.cache/gobuild \
+    if [ -z "$GOPROXY" ]; then \
+        if [ "$NEED_MIRROR" = "1" ]; then \
+            export GOPROXY="https://goproxy.cn,https://proxy.golang.org,direct"; \
+        else \
+            export GOPROXY="https://proxy.golang.org,direct"; \
+        fi; \
+    fi && \
     git config --global safe.directory "*" && \
     ./build.sh --go
 
