@@ -77,6 +77,9 @@ RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     apt -o Acquire::Retries=5 install -y nginx=${NGINX_VERSION} && \
     apt-mark hold nginx
 
+ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
+    UV_HTTP_TIMEOUT=200 \
+    UV_HTTP_RETRIES=3
 # Install uv
 RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/,target=/deps \
     if [ "$NEED_MIRROR" == "1" ]; then \
@@ -93,9 +96,6 @@ RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/,target=/deps 
     && rm -rf "uv-${uv_arch}-unknown-linux-gnu" \
     && uv python install 3.13
 
-ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
-    UV_HTTP_TIMEOUT=200 \
-    UV_HTTP_RETRIES=3
 ENV PATH=/root/.local/bin:$PATH
 
 # Install Node.js 22.x (Ubuntu 24.04's Node.js is too old)
